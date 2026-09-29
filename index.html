@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мои долги — график платежей</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background: #f4f7fb;
+        padding: 16px;
+        color: #1f2937;
+        margin: 0;
+      }
+      h1 {
+        color: #1e3a8a;
+        margin-bottom: 5px;
+      }
+      .current-date {
+        color: #475569;
+        font-size: 15px;
+        margin-bottom: 20px;
+        font-weight: normal;
+      }
+      .total {
+        background: #e0f2fe;
+        border-left: 6px solid #0284c7;
+        padding: 12px 16px;
+        margin-bottom: 20px;
+        font-size: 18px;
+        border-radius: 8px;
+      }
+      .total small {
+        color: #475569;
+      }
+      .print-btn {
+        background: #0284c7;
+        color: white;
+        border: none;
+        padding: 10px 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 16px;
+        margin-bottom: 16px;
+      }
+      .print-btn:hover {
+        background: #0369a1;
+      }
+      /* Адаптивная обёртка таблицы */
+      .table-container {
+        overflow-x: auto;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        border-radius: 8px;
+        background: white;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 600px;
+      }
+      thead th {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background: #1e3a8a;
+        color: white;
+        padding: 12px;
+        text-align: left;
+      }
+      td {
+        padding: 10px 12px;
+        border-bottom: 1px solid #e5e7eb;
+      }
+      tr:nth-child(even) {
+        background: #f8fafc;
+      }
+      tr:hover {
+        background: #e0f2fe;
+      }
+      /* Подсвечивание текущего месяца */
+      tr.current-month {
+        background: #fff3cd !important;
+        font-weight: bold;
+        border-left: 4px solid #f59e0b;
+      }
+      /* Кнопка удаления */
+      .delete-btn {
+        background: #ef4444;
+        color: white;
+        border: none;
+        padding: 6px 10px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+      }
+      .delete-btn:hover {
+        background: #dc2626;
+      }
+      /* Цвета для людей */
+      .person-inna { color: #b91c1c; font-weight: bold; }
+      .person-mama { color: #c2410c; font-weight: bold; }
+      .person-nastya { color: #a21caf; font-weight: bold; }
+      .person-babushka { color: #047857; font-weight: bold; }
+      .person-ella { color: #1d4ed8; font-weight: bold; }
+      .person-papa { color: #7c3aed; font-weight: bold; }
+      .amount { font-weight: bold; }
+      .remainder { font-family: monospace; }
+      .zero { color: #16a34a; font-weight: bold; }
+
+      @media print {
+        body { background: white; padding: 0; }
+        .no-print { display: none; }
+        .table-container { box-shadow: none; overflow-x: visible; }
+        table { width: 100%; }
+        thead th {
+          background: #1e3a8a !important;
+          color: white !important;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        tr:nth-child(even) {
+          background: #f8fafc !important;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        /* На печати убираем кнопку удаления и подсветку текущего месяца */
+        .delete-btn, tr.current-month { display: none; }
+      }
+
+      /* Мобильная адаптация: карточки вместо таблицы */
+      @media (max-width: 500px) {
+        thead { display: none; }
+        tbody tr {
+          display: block;
+          margin-bottom: 16px;
+          border: 1px solid #e5e7eb;
+          border-radius: 8px;
+          padding: 12px;
+          background: white;
+          position: relative;
+        }
+        tbody td {
+          display: flex;
+          justify-content: space-between;
+          align-items: baseline;
+          margin: 6px 0;
+          border: none;
+          padding: 0;
+        }
+        tbody td::before {
+          content: attr(data-label);
+          color: #64748b;
+          font-weight: 600;
+        }
+        .delete-btn {
+          position: absolute;
+          right: 12px;
+          top: 12px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Мои долги — график платежей</h1>
+
+    <div class="current-date" id="today"></div>
+
+    <button class="print-btn no-print" onclick="window.print()">🖨️ Сохранить в PDF</button>
+
+    <div class="total">
+      <strong>Общая сумма долга:</strong> 19 063,61 $ / 57 626,61 BYN<br>
+      <small>Курсы: 1 € = 1,137 $ = 3,4328 BYN; 1 $ = 3,0257 BYN</small>
+    </div>
+
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Месяц</th>
+            <th>Кому</th>
+            <th>Сколько</th>
+            <th>Общий остаток, $</th>
+            <th>Общий остаток, BYN</th>
+            <th class="no-print">Действие</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr data-month="Сентябрь 2026">
+            <td data-label="Месяц">Сентябрь 2026</td>
+            <td data-label="Кому"><span class="person-inna">Инна</span>; <span class="person-mama">мама</span></td>
+            <td data-label="Сколько" class="amount">500 $; 500 $</td>
+            <td data-label="Остаток $" class="remainder">18 063,61 $</td>
+            <td data-label="Остаток BYN" class="remainder">54 600,91 BYN</td>
+            <td class="no-print"><button class="delete-btn" onclick="removeRow(this)">Удалить</button></td>
+          </tr>
+          <tr data-month="Октябрь 2026">
+            <td data-label="Месяц">Октябрь 2026</td>
+            <td data-label="Кому"><span class="person-nastya">Настя</span></td>
+            <td data-label="Сколько" class="amount">1000 €</td>
+            <td data-label="Остаток $" class="remainder">16 926,61 $</td>
+            <td data-label="Остаток BYN" class="remainder">51 168,11 BYN</td>
+            <td class="no-print"><button class="delete-btn" onclick="removeRow(this)">Удалить</button></td>
+          </tr>
+          <tr data-month="Ноябрь 2026">
+            <td data-label="Месяц">Ноябрь 2026</td>
+            <td data-label="Кому"><span class="person-inna">Инна</span></td>
+            <td data-label="Сколько" class="amount">1000 $</td>
+            <td data-label="Остаток $" class="remainder">15 926,61 $</td>
+            <td data-label="Остаток BYN" class="remainder">48 142,41 BYN</td>
+            <td class="no-print"><button class="delete-btn" onclick="removeRow(this)">Удалить</button></td>
+          </tr>
+          <tr data-month="Декабрь 2026">
+            <td data-label="Месяц">Декабрь 2026</td>
+            <td data-label="Кому"><span class="person-nastya">Настя</span>; <span class="person-babushka">бабушка</span></td>
+            <td data-label="Сколько" class="amount">1000 €; 3450 $ + 7000 BYN</td>
+            <td data-label="Остаток $" class="remainder">9 026,10 $</td>
+            <td data-label="Остаток BYN" class="remainder">27 270,94 BYN</td>
+            <td class="no-print"><button class="delete-btn" onclick="removeRow(this)">Удалить</button></td>
+          </tr>
+          <tr data-month="Январь 2027">
+            <td data-label="Месяц">Январь 2027</td>
+            <td data-label="Кому"><span class="person-nastya">Настя</span></td>
+            <td data-label="Сколько" class="amount">1000 €</td>
+            <td data-label="Остаток $" class="remainder">7 889,10 $</td>
+            <td data-label="Остаток BYN" class="remainder">23 838,14 BYN</td>
+            <td class="no-print"><button class="delete-btn" onclick="removeRow(this)">Удалить</button></td>
+          </tr>
+          <tr data-month="Февраль 2027">
+            <td data-label="Месяц">Февраль 2027</td>
+            <td data-label="Кому"><span class="person-ella">Элла</span></td>
+            <td data-label="Сколько" class="amount">1000 €</td>
+            <td data-label="Остаток $" class="remainder">6 752,10 $</td>
+            <td data-label="Остаток BYN" class="remainder">20 405,34 BYN</td>
+            <td class="no-print"><button class="delete-btn" onclick="removeRow(this)">Удалить</button></td>
+          </tr>
+          <tr data-month="Март 2027">
+            <td data-label="Месяц">Март 2027</td>
+            <td data-label="Кому"><span class="person-ella">Элла</span></td>
+            <td data-label="Сколько" class="amount">1000 €</td>
+            <td data-label="Остаток $" class="remainder">5 615,10 $</td>
+            <td data-label="Остаток BYN" class="remainder">16 972,54 BYN</td>
+            <td class="no-print"><button class="delete-btn" onclick="removeRow(this)">Удалить</button></td>
+          </tr>
+          <tr data-month="Апрель 2027">
+            <td data-label="Месяц">Апрель 2027</td>
+            <td data-label="Кому"><span class="person-ella">Элла</span></td>
+            <td data-label="Сколько" class="amount">1000 €</td>
+            <td data-label="Остаток $" class="remainder">4 478,10 $</td>
+            <td data-label="Остаток BYN" class="remainder">13 539,74 BYN</td>
+            <td class="no-print"><button class="delete-btn" onclick="removeRow(this)">Удалить</button></td>
+          </tr>
+          <tr data-month="Май 2027">
+            <td data-label="Месяц">Май 2027</td>
+            <td data-label="Кому"><span class="person-ella">Элла</span></td>
+            <td data-label="Сколько" class="amount">800 €</td>
+            <td data-label="Остаток $" class="remainder">3 568,50 $</td>
+            <td data-label="Остаток BYN" class="remainder">10 793,50 BYN</td>
+            <td class="no-print"><button class="delete-btn" onclick="removeRow(this)">Удалить</button></td>
+          </tr>
+          <tr data-month="Июнь 2027">
+            <td data-label="Месяц">Июнь 2027</td>
+            <td data-label="Кому"><span class="person-papa">Папа</span>; <span class="person-ella">Элла</span></td>
+            <td data-label="Сколько" class="amount">500 €; 500 $</td>
+            <td data-label="Остаток $" class="remainder">2 500,00 $</td>
+            <td data-label="Остаток BYN" class="remainder">7 564,25 BYN</td>
+            <td class="no-print"><button class="delete-btn" onclick="removeRow(this)">Удалить</button></td>
+          </tr>
+          <tr data-month="Июль 2027">
+            <td data-label="Месяц">Июль 2027</td>
+            <td data-label="Кому"><span class="person-ella">Элла</span></td>
+            <td data-label="Сколько" class="amount">1000 $</td>
+            <td data-label="Остаток $" class="remainder">1 500,00 $</td>
+            <td data-label="Остаток BYN" class="remainder">4 538,55 BYN</td>
+            <td class="no-print"><button class="delete-btn" onclick="removeRow(this)">Удалить</button></td>
+          </tr>
+          <tr data-month="Август 2027">
+            <td data-label="Месяц">Август 2027</td>
+            <td data-label="Кому"><span class="person-ella">Элла</span></td>
+            <td data-label="Сколько" class="amount">1000 $</td>
+            <td data-label="Остаток $" class="remainder">500,00 $</td>
+            <td data-label="Остаток BYN" class="remainder">1 512,85 BYN</td>
+            <td class="no-print"><button class="delete-btn" onclick="removeRow(this)">Удалить</button></td>
+          </tr>
+          <tr data-month="Сентябрь 2027">
+            <td data-label="Месяц">Сентябрь 2027</td>
+            <td data-label="Кому"><span class="person-ella">Элла</span></td
+            <td data-label="Сколько" class="amount">500 $</td>
+            <td data-label="Остаток $" class="remainder zero">0,00 $</td>
+            <td data-label="Остаток BYN" class="remainder zero">0,00 BYN</td>
+            <td class="no-print"><button class="delete-btn" onclick="removeRow(this)">Удалить</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <script>
+      // Текущая дата
+      const months = [
+        'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+        'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
+      ];
+      const now = new Date();
+      const dateStr = 'Сегодня: ' + now.getDate() + ' ' +
+        months[now.getMonth()] + ' ' + now.getFullYear() + ' г.';
+      document.getElementById('today').textContent = dateStr;
+
+      // Подсветка текущего месяца
+      const currentMonthYear = months[now.getMonth()] + ' ' + now.getFullYear();
+      document.querySelectorAll('tbody tr').forEach(function(row) {
+        if (row.getAttribute('data-month') === currentMonthYear) {
+          row.classList.add('current-month');
+        }
+      });
+
+      // Удаление строки
+      function removeRow(btn) {
+        var row = btn.closest('tr');
+        row.style.transition = 'opacity 0.3s, transform 0.3s';
+        row.style.opacity = '0';
+        row.style.transform = 'translateX(20px)';
+        setTimeout(function() {
+          row.remove();
+        }, 300);
+      }
+    </script>
+  </body>
+</html>
